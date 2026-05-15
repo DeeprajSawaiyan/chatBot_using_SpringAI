@@ -1,0 +1,22 @@
+# Groq (OpenAI-compatible): set GROQ_API_KEY in your shell before starting.
+# Optional: spring.ai.openai.connection-timeout / read-timeout are not in Spring AI 1.0.0-M1 metadata;
+# tune timeouts via a custom RestClient bean if you need them.
+groq:
+  api:
+    key: ${GROQ_API_KEY:}
+
+spring:
+  application:
+    name: demo
+  ai:
+    openai:
+      api-key: ${groq.api.key}
+      base-url: https://api.groq.com/openai
+      chat:
+        options:
+          model: llama-3.1-8b-instant
+          temperature: 0.7
+
+logging:
+  level:
+    org.springframework.ai: DEBUG
