@@ -16,7 +16,10 @@ public class WebConfig {
                 registry.addMapping("/**")
                         .allowedOriginPatterns(
                                 "http://localhost:*",
-                                "http://127.0.0.1:*")
+                                "http://127.0.0.1:*",
+                                "https://*.onrender.com",
+                                "https://*.vercel.app",
+                                "https://*.netlify.app")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);

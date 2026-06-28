@@ -1,9 +1,11 @@
-# Groq (OpenAI-compatible): set GROQ_API_KEY in your shell before starting.
-# Optional: spring.ai.openai.connection-timeout / read-timeout are not in Spring AI 1.0.0-M1 metadata;
-# tune timeouts via a custom RestClient bean if you need them.
+# Set GROQ_API_KEY in your environment (never commit the real key).
 groq:
   api:
     key: ${GROQ_API_KEY:}
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -19,4 +21,5 @@ spring:
 
 logging:
   level:
-    org.springframework.ai: DEBUG
+    org.springframework.ai: INFO
+    root: INFO

@@ -1,0 +1,34 @@
+# Render Blueprint: free backend + free static frontend
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: chatbot-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./spring-boot-ai-chatbot/Dockerfile
+    dockerContext: ./spring-boot-ai-chatbot
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: JAVA_TOOL_OPTIONS
+        value: -Xmx384m -Xms256m
+
+  - type: web
+    name: chatbot-ui
+    runtime: static
+    buildCommand: npm install && npm run build
+    rootDir: chatbot-ui
+    staticPublishPath: build
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    envVars:
+      - key: REACT_APP_API_BASE_URL
+        fromService:
+          type: web
+          name: chatbot-api
+          envVarKey: RENDER_EXTERNAL_URL
