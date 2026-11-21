@@ -26,11 +26,14 @@ Deploy **backend** and **frontend** on [Render](https://render.com) (free plan).
 2. Open [Render Dashboard](https://dashboard.render.com/) → **New** → **Blueprint**.
 3. Connect your GitHub repo and select this project.
 4. Render reads `render.yaml` and creates two services: `chatbot-api` and `chatbot-ui`.
-5. When prompted, set **`GROQ_API_KEY`** to your Groq secret (`gsk_...`).
+5. When prompted, set:
+   - **`GROQ_API_KEY`** — your Groq secret (`gsk_...`).
+   - **`REACT_APP_API_BASE_URL`** — the public URL of `chatbot-api`, usually `https://chatbot-api.onrender.com` (no trailing slash). If you are unsure, enter a guess; you can fix it in step 7.
 6. Click **Apply**. Wait for both services to finish building (backend ~5–10 min first time).
-7. Open the **`chatbot-ui`** service URL (e.g. `https://chatbot-ui-xxxx.onrender.com`).
+7. Open the **`chatbot-api`** service in the dashboard and copy its URL. If it differs from what you entered, update `REACT_APP_API_BASE_URL` on **`chatbot-ui`** and trigger **Manual Deploy** (the value is baked in at build time).
+8. Open the **`chatbot-ui`** service URL (e.g. `https://chatbot-ui-xxxx.onrender.com`).
 
-The UI is automatically wired to the API via `REACT_APP_API_BASE_URL`.
+If `GROQ_API_KEY` is missing, the API still starts (so the health check passes) and chat requests return **503** with an explanation.
 
 ## Manual env vars (if needed)
 
@@ -40,7 +43,7 @@ On the **chatbot-api** service in Render → **Environment**:
 |-----|--------|
 | `GROQ_API_KEY` | Your Groq API key |
 
-On **chatbot-ui** (usually set by blueprint):
+On **chatbot-ui** (redeploy after changing it):
 
 | Key | Value |
 |-----|--------|
@@ -77,6 +80,7 @@ npx serve -s build
 | Issue | Fix |
 |-------|-----|
 | UI cannot reach API | Check `REACT_APP_API_BASE_URL` on UI service; redeploy UI after changing it |
-| 503 / API key errors | Set `GROQ_API_KEY` on **chatbot-api** and redeploy |
+| 503 "GROQ_API_KEY is not set" | Set `GROQ_API_KEY` on **chatbot-api** and redeploy |
+| 502 "401 Unauthorized" | The Groq key is wrong or revoked; create a new one and update `GROQ_API_KEY` |
 | Slow first message | Normal on Render free tier (cold start); wait and retry |
 | CORS errors | Ensure UI URL matches `*.onrender.com` or add your domain in `WebConfig.java` |

@@ -1,27 +1,20 @@
 # Stage 1: Build the React app
-FROM node:16 as build
-
-# Set working directory
+FROM node:20-alpine AS build
 WORKDIR /app
 
-# Copy the package.json and install dependencies
-COPY package.json ./
-RUN npm install
+# Install exactly the versions pinned in package-lock.json
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# Copy the rest of the application code
 COPY . ./
 
-# Build the React app
+# Optional: bake a non-default API URL into the build (docker build --build-arg REACT_APP_API_BASE_URL=...)
+ARG REACT_APP_API_BASE_URL
+ENV REACT_APP_API_BASE_URL=$REACT_APP_API_BASE_URL
 RUN npm run build
 
 # Stage 2: Serve the React app using nginx
 FROM nginx:alpine
-
-# Copy the built React app from the previous stage
 COPY --from=build /app/build /usr/share/nginx/html
-
-# Expose port 80 to serve the application
 EXPOSE 80
-
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]

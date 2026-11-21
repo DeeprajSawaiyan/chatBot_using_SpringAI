@@ -16,14 +16,15 @@ These updates extend the original template: Groq-oriented configuration, safer s
 
 | Area | What was added or changed |
 |------|---------------------------|
-| **Groq** | `application.yaml` sets `spring.ai.openai.base-url` to Groq’s OpenAI-compatible endpoint and `spring.ai.openai.chat.options.model` to **`llama-3.1-8b-instant`**. `spring.application.name` is **`demo`**. Debug logging is enabled for **`org.springframework.ai`**. |
-| **Secrets** | No API keys in git. `groq.api.key: ${GROQ_API_KEY:}` feeds `spring.ai.openai.api-key`. Create a key in the [Groq Console](https://console.groq.com/) → **API keys**, then `export GROQ_API_KEY="gsk_..."` before starting the backend (Compose passes the same variable). |
-| **Chat API** | `GET /ai/chat/string` returns **plain text** via `OpenAiChatModel.call(Prompt)` (fits axios). If the key is missing → **503** with an explicit message; Groq/upstream failures → **502** with a short reason (shown in the UI). Streaming `GET /ai/chat` is unchanged. |
-| **CORS** | `WebConfig` uses **`allowedOriginPatterns`** for `http://localhost:*` and `http://127.0.0.1:*`, allows **OPTIONS**, and supports credentials when browsers send them. |
-| **Frontend** | **Functional** `setMessages` updates, **`axios` `params`** for query encoding, optional **`REACT_APP_API_BASE_URL`**, **`react-icons`** for send + avatars, **`onKeyDown`** for Enter, disabled send while loading, and **structured error messages** (network vs HTTP status vs configuration). |
+| **Groq** | `application.yaml` sets `spring.ai.openai.base-url` to Groq’s OpenAI-compatible endpoint and `spring.ai.openai.chat.options.model` to **`openai/gpt-oss-20b`** (temperature `0.7`). Override with `GROQ_MODEL` (for example a Groq web-search model, after checking it is available to your key). `spring.application.name` is **`demo`**. |
+| **Secrets** | No API keys in git. `groq.api.key: ${GROQ_API_KEY:}` feeds `spring.ai.openai.api-key`. Create a key in the [Groq Console](https://console.groq.com/) → **API keys**, then `export GROQ_API_KEY="gsk_..."` before starting the backend (Compose passes the same variable). If the key is missing or empty, the app **still starts** (health checks pass) and chat endpoints return **503**. |
+| **Chat API** | `POST /ai/chat/stream` (used by the UI) takes JSON `{"messages":[{"role":"user","content":"..."}, ...]}` and streams the reply as **plain text** chunks. It uses the last 20 messages as context and returns **400** for an invalid body. `GET /ai/chat/stream?message=` (single message, streamed) and `GET /ai/chat/string` (whole reply at once) are also available. All return **503** if the key is missing and **502** with Groq's reason (e.g. `401 Unauthorized — Invalid API Key`) if Groq fails before replying. |
+| **CORS** | `WebConfig` uses **`allowedOriginPatterns`** for `http://localhost:*`, `http://127.0.0.1:*`, `https://*.onrender.com`, `https://*.vercel.app` and `https://*.netlify.app`. |
+| **Frontend** | **ChatBotAI** UI: split layout with mascot, **light/dark theme toggle** (remembered), and random suggested questions that change on every load and **New chat**. Streams replies with **`fetch`** + `ReadableStream` and renders them as **Markdown** (`react-markdown` + `remark-gfm`) with readable tables and code blocks with copy buttons. |
 | **Dev proxy** | `chatbot-ui/package.json` **`"proxy": "http://localhost:8080"`** — in development the UI calls **`/ai/...`** on the CRA origin and the dev server forwards to Spring Boot (avoids cross-origin issues). Prefer leaving `REACT_APP_API_BASE_URL` unset in dev so the proxy is used. |
-| **Docker** | Backend **multi-stage Dockerfile** (Maven build + Eclipse Temurin JRE). **`docker-compose.yaml`** injects **`GROQ_API_KEY`** into the backend container. |
-| **Tests / tooling** | `App.test.js` targets the chat placeholder; Jest **`transformIgnorePatterns`** includes **`axios`** so ESM axios runs under `react-scripts` tests. |
+| **Docker** | Backend **multi-stage Dockerfile** (Maven build + Eclipse Temurin JRE). UI image builds with **Node 20** and `npm ci`. **`docker-compose.yaml`** injects **`GROQ_API_KEY`** into the backend container. |
+| **Memory** | The UI sends the recent conversation with every message, so follow-up questions work. The chat is saved in the browser (`localStorage`) and survives a reload; **New chat** clears it. |
+| **Tests / tooling** | Backend: `ChatControllerTest` (message mapping, limits, Groq error parsing). Frontend: `App.test.js` (history, errors, saved chats, suggestions, theme); it mocks the ESM-only `react-markdown` / `remark-gfm` so they run under `react-scripts` Jest. |
 | **Examples** | `chatbot-ui/.env.example` documents when to set `REACT_APP_API_BASE_URL` (production / non-default hosts). |
 
 **Note:** Per-client `connection-timeout` / `read-timeout` properties for Groq are **not** part of Spring AI **1.0.0-M1** configuration metadata for this starter; custom timeouts would require a dedicated HTTP client bean if you need them later.
@@ -49,7 +50,7 @@ flowchart LR
     OAI["Groq API\n(OpenAI-compatible)"]
   end
 
-  UI -->|"HTTP GET\n/ai/chat/string"| API
+  UI -->|"HTTP POST\n/ai/chat/stream"| API
   API --> AI
   AI --> OAI
 ```
@@ -70,12 +71,13 @@ flowchart LR
 | Backend runtime | Java **17** | Required by Spring Boot 3.x parent. |
 | Backend framework | **Spring Boot** `3.3.3` | Web stack, auto-configuration. |
 | AI integration | **Spring AI** `1.0.0-M1` (`spring-ai-openai-spring-boot-starter`) | Milestone BOM from Spring Milestones repository. |
-| LLM provider | **Groq** (default) | OpenAI-compatible API; model **`llama-3.1-8b-instant`** in `application.yaml`. Point `base-url` and model elsewhere to use OpenAI or another compatible host. |
+| LLM provider | **Groq** (default) | OpenAI-compatible API; model **`openai/gpt-oss-20b`** in `application.yaml`, overridable via `GROQ_MODEL`. Point `base-url` and model elsewhere to use OpenAI or another compatible host. |
 | Backend build | **Maven** | `pom.xml` in `spring-boot-ai-chatbot/`. |
 | Frontend | **React** `18`, **Create React App** (`react-scripts` `5.0.1`) | SPA in `chatbot-ui/`. |
-| HTTP client (UI) | **axios** | `GET` requests to the backend. |
-| Icons (UI) | **react-icons** | Send button, user and assistant avatars. |
-| Frontend container | **Node 16** (build) + **nginx alpine** (serve) | See `chatbot-ui/Dockerfile`. |
+| HTTP client (UI) | **fetch** (streaming) | Reads the `/ai/chat/stream` body chunk by chunk. |
+| Markdown (UI) | **react-markdown** + **remark-gfm** | Renders the final AI reply. |
+| Icons (UI) | **react-icons** | Suggestion, copy and button icons. |
+| Frontend container | **Node 20** (build) + **nginx alpine** (serve) | See `chatbot-ui/Dockerfile`. |
 | Backend container | **Eclipse Temurin 17 JRE** (Alpine) | Multi-stage image: Maven builds the JAR, runtime stage runs **`java -jar`**. |
 | Orchestration | **Docker Compose** `3.8` | Root `docker-compose.yaml`. |
 
@@ -86,12 +88,12 @@ flowchart LR
 End-to-end flow when the user sends a message from the UI:
 
 1. **User input** — The user types in the input field and submits (button or Enter) in `Chatbot.js`.
-2. **Optimistic UI** — The client appends a **user** message to local React state and clears the input; a loading state may show for the assistant.
-3. **HTTP request** — The frontend issues an **axios** `GET` to `/ai/chat/string` with a `message` query parameter (encoded via axios `params`).
-4. **CORS** — `WebConfig` allows `http://localhost:*` and `http://127.0.0.1:*` for cross-origin browser calls.
-5. **Controller** — `ChatController` handles `/ai/chat/string`, calls `OpenAiChatModel.call(Prompt)` and returns plain text. A separate endpoint `/ai/chat` streams `ChatResponse` from a `Prompt` built with a `UserMessage`.
-6. **Spring AI** — The OpenAI-compatible client uses `application.yaml` (`spring.ai.openai.base-url`, model, and API key). This project defaults the base URL to **Groq**; the key is supplied via **`GROQ_API_KEY`** (see `application.yaml`).
-7. **Response handling** — The UI assigns `response.data` to an **ai** message in state and renders the thread in the chat panel.
+2. **Optimistic UI** — The client appends a **user** message to local React state (saved to `localStorage`), clears the input and shows a **Thinking** indicator.
+3. **HTTP request** — The frontend `POST`s the last 20 messages (excluding error messages) as JSON to `/ai/chat/stream`.
+4. **CORS** — `WebConfig` allows localhost plus `*.onrender.com`, `*.vercel.app` and `*.netlify.app` for cross-origin browser calls.
+5. **Controller** — `ChatController` checks the key (503 if missing), calls `OpenAiChatModel.stream(Prompt)` and waits for the first chunk; if Groq fails it returns **502**, otherwise it writes each text chunk to the response as it arrives.
+6. **Spring AI** — The OpenAI-compatible client uses `application.yaml` (`spring.ai.openai.base-url`, model, and API key). This project defaults the base URL to **Groq**; the key is supplied via **`GROQ_API_KEY`**.
+7. **Response handling** — The UI appends each chunk to the live reply, then stores the full text as an **ai** message and renders it as Markdown. Non-2xx responses are shown as an error message.
 
 ```mermaid
 sequenceDiagram
@@ -103,14 +105,17 @@ sequenceDiagram
 
   U->>R: Submit message
   R->>R: Update messages state (user)
-  R->>S: GET /ai/chat/string?message=...
-  S->>M: call(Prompt)
-  M->>O: Chat completions API (Groq / OpenAI-compatible)
-  O-->>M: Completion
-  M-->>S: ChatResponse
-  S-->>R: Plain text body
-  R->>R: Append AI message to state
-  R->>U: Render updated chat
+  R->>S: POST /ai/chat/stream (recent history)
+  S->>M: stream(Prompt)
+  M->>O: Chat completions API (stream=true)
+  loop For each chunk
+    O-->>M: Delta
+    M-->>S: ChatResponse
+    S-->>R: Plain text chunk
+    R->>U: Show live text
+  end
+  R->>R: Append final AI message to state
+  R->>U: Render reply as Markdown
 ```
 
 ---
@@ -177,8 +182,10 @@ The dev server runs on **http://localhost:3000**. In development, `chatbot-ui/pa
 
 ### Optional checks
 
-- **Backend health**: Open `http://localhost:8080/ai/chat/string?message=Hello` in a browser or use `curl` once the app is up.
-- **Tests**: In `chatbot-ui`, run `CI=true npm test -- --watchAll=false`. Jest is configured to transform the ESM `axios` package.
+- **Backend health**: `curl http://localhost:8080/health` → `{"status":"ok"}`.
+- **Chat**: `curl -N "http://localhost:8080/ai/chat/stream?message=Hello"` streams a reply.
+- **Chat with history**: `curl -N -H 'Content-Type: application/json' -d '{"messages":[{"role":"user","content":"My name is Deep"},{"role":"assistant","content":"Hi Deep!"},{"role":"user","content":"What is my name?"}]}' http://localhost:8080/ai/chat/stream`
+- **Tests**: backend `mvn test` in `spring-boot-ai-chatbot`; frontend `CI=true npm test -- --watchAll=false` in `chatbot-ui`.
 
 ---
 

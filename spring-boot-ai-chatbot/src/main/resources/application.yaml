@@ -16,7 +16,9 @@ spring:
       base-url: https://api.groq.com/openai
       chat:
         options:
-          model: openai/gpt-oss-20b
+          # Override with GROQ_MODEL, e.g. a Groq web-search model such as groq/compound
+          # (check the model id is available to your key first).
+          model: ${GROQ_MODEL:openai/gpt-oss-20b}
           temperature: 0.7
 
 logging:

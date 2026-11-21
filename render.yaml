@@ -27,8 +27,7 @@ services:
         name: Cache-Control
         value: public, max-age=0, must-revalidate
     envVars:
+      # Public URL of chatbot-api, e.g. https://chatbot-api.onrender.com (no trailing slash).
+      # Render prompts for it on Blueprint creation; it is baked in at build time.
       - key: REACT_APP_API_BASE_URL
-        fromService:
-          type: web
-          name: chatbot-api
-          envVarKey: RENDER_EXTERNAL_URL
+        sync: false
